@@ -67,10 +67,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = user.id;
       res.json({ id: user.id, username: user.username });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
-      }
-      res.status(500).json({ error: "Erro ao criar usuário" });
+      console.error("REGISTER ERROR:", error);
+      res.status(500).json({ error: String(error) });
     }
   });
 
@@ -87,8 +85,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ id: user.id, username: user.username });
     } catch (error) {
       console.error("LOGIN ERROR:", error);
-      res.status(500).json({ error: "Erro ao fazer login" });
+      res.status(500).json({ error: String(error) });
     }
+
   });
 
   app.post("/api/auth/logout", (req, res) => {
