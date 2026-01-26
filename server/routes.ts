@@ -76,22 +76,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
-      
-      let user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) {
-        return res.status(401).json({ error: "Credenciais inválidas" });
-      }
+      const { username } = req.body;
 
-      // Auto-promote admin email if not already admin
-      const ADMIN_EMAIL = "marcelomarcos.g9@gmail.com";
-      if (user.username === ADMIN_EMAIL && !user.isAdmin) {
-        user = await storage.setUserAdmin(user.id, true) || user;
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "Usuário não encontrado" });
       }
 
       req.session.userId = user.id;
       res.json({ id: user.id, username: user.username });
     } catch (error) {
+      console.error("LOGIN ERROR:", error);
       res.status(500).json({ error: "Erro ao fazer login" });
     }
   });
