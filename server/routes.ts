@@ -32,9 +32,9 @@ async function requireAdmin(req: any, res: any, next: any) {
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
+      secret: process.env.SESSION_SECRET || "dev-secret",
       resave: false,
-      saveUninitialized: false,
+      saveUninitialized: true, // 👈 MUDE ISSO
       cookie: {
         secure: true,
         httpOnly: true,
