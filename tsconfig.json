@@ -23,5 +23,10 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"]
+  "include": [
+    "client/src/**/*",
+    "shared/**/*",
+    "server/**/*",
+    "vite-env.d.ts"
+  ]
 }
