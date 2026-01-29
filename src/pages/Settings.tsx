@@ -148,7 +148,7 @@ export default function Settings() {
               <div>
                 <CardTitle className="text-lg">Metas de Vendas</CardTitle>
                 <CardDescription>
-                  Configure os valores de meta mínima e máxima do período
+                  Configure os valores de meta máxima e mínima do período
                 </CardDescription>
               </div>
             </div>

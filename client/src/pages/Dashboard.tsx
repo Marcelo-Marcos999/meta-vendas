@@ -4,24 +4,74 @@ import { Progress } from "@/components/ui/progress";
 import { useDailySales } from "@/hooks/useDailySales";
 import { useGoalsConfig } from "@/hooks/useGoalsConfig";
 import { formatCurrency } from "@/lib/goalCalculations";
-import { TrendingUp, TrendingDown, Target, DollarSign, Calendar, Award } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import {
+  TrendingUp,
+  TrendingDown,
+  Target,
+  DollarSign,
+  Calendar,
+  Award,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import { format, parseISO } from "date-fns";
 
 export default function Dashboard() {
   const { data: sales = [] } = useDailySales();
   const { data: config } = useGoalsConfig();
 
-  const totalSales = sales.reduce((sum, s) => sum + Number(s.salesValue), 0);
-  
+  const totalSales = sales.reduce(
+    (sum, s) => sum + Number(s.salesValue),
+    0
+  );
+
   const totalMinGoal = Number(config?.minGoal || 0);
   const totalMaxGoal = Number(config?.maxGoal || 0);
 
-  const progressMin = totalMinGoal > 0 ? (totalSales / totalMinGoal) * 100 : 0;
-  const progressMax = totalMaxGoal > 0 ? (totalSales / totalMaxGoal) * 100 : 0;
+  const progressMin =
+    totalMinGoal > 0 ? (totalSales / totalMinGoal) * 100 : 0;
 
-  const daysWithSales = sales.filter((s) => Number(s.salesValue) > 0).length;
-  const avgDailySales = daysWithSales > 0 ? totalSales / daysWithSales : 0;
+  const progressMax =
+    totalMaxGoal > 0 ? (totalSales / totalMaxGoal) * 100 : 0;
+
+  const daysWithSales = sales.filter(
+    (s) => Number(s.salesValue) > 0
+  ).length;
+
+  const avgDailySales =
+    daysWithSales > 0 ? totalSales / daysWithSales : 0;
+
+  // ===== PROJEÇÃO DE FATURAMENTO =====
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  const daysInMonth = new Date(
+    currentYear,
+    currentMonth + 1,
+    0
+  ).getDate();
+
+  const dayOfMonth = today.getDate();
+  const remainingDays = Math.max(daysInMonth - dayOfMonth, 0);
+
+  const projectedRevenue =
+    totalSales + avgDailySales * remainingDays;
+
+  const projectionVsMax =
+    totalMaxGoal > 0
+      ? (projectedRevenue / totalMaxGoal) * 100
+      : 0;
+  // ==================================
 
   const chartData = sales.map((s) => ({
     date: format(parseISO(s.date), "dd/MM"),
@@ -36,7 +86,8 @@ export default function Dashboard() {
   return (
     <MainLayout title="Dashboard">
       <div className="space-y-6 animate-fade-in">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* CARDS SUPERIORES */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -54,7 +105,13 @@ export default function Dashboard() {
                 ) : (
                   <TrendingDown className="h-4 w-4 text-destructive" />
                 )}
-                <span className={`text-xs ${isAboveMax ? "text-success" : "text-destructive"}`}>
+                <span
+                  className={`text-xs ${
+                    isAboveMax
+                      ? "text-success"
+                      : "text-destructive"
+                  }`}
+                >
                   {progressMax.toFixed(1)}% da meta máxima
                 </span>
               </div>
@@ -72,7 +129,10 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-foreground">
                 {formatCurrency(totalMaxGoal)}
               </div>
-              <Progress value={Math.min(progressMax, 100)} className="mt-2 h-2" />
+              <Progress
+                value={Math.min(progressMax, 100)}
+                className="mt-2 h-2"
+              />
             </CardContent>
           </Card>
 
@@ -87,7 +147,10 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-foreground">
                 {formatCurrency(totalMinGoal)}
               </div>
-              <Progress value={Math.min(progressMin, 100)} className="mt-2 h-2" />
+              <Progress
+                value={Math.min(progressMin, 100)}
+                className="mt-2 h-2"
+              />
             </CardContent>
           </Card>
 
@@ -105,6 +168,29 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground mt-1">
                 {daysWithSales} dias com vendas
               </p>
+            </CardContent>
+          </Card>
+
+          {/* CARD DE PROJEÇÃO */}
+          <Card className="stat-card border-primary/40">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Projeção do Mês
+              </CardTitle>
+              <TrendingUp className="h-5 w-5 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">
+                {formatCurrency(projectedRevenue)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Mantendo a média atual
+              </p>
+              {totalMaxGoal > 0 && (
+                <p className="text-xs text-success mt-1">
+                  {projectionVsMax.toFixed(1)}% da meta máxima
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
