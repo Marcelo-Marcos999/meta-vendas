@@ -4,74 +4,24 @@ import { Progress } from "@/components/ui/progress";
 import { useDailySales } from "@/hooks/useDailySales";
 import { useGoalsConfig } from "@/hooks/useGoalsConfig";
 import { formatCurrency } from "@/lib/goalCalculations";
-import {
-  TrendingUp,
-  TrendingDown,
-  Target,
-  DollarSign,
-  Calendar,
-  Award,
-} from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts";
+import { TrendingUp, TrendingDown, Target, DollarSign, Calendar, Award } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { format, parseISO } from "date-fns";
 
 export default function Dashboard() {
   const { data: sales = [] } = useDailySales();
   const { data: config } = useGoalsConfig();
 
-  const totalSales = sales.reduce(
-    (sum, s) => sum + Number(s.salesValue),
-    0
-  );
-
+  const totalSales = sales.reduce((sum, s) => sum + Number(s.salesValue), 0);
+  
   const totalMinGoal = Number(config?.minGoal || 0);
   const totalMaxGoal = Number(config?.maxGoal || 0);
 
-  const progressMin =
-    totalMinGoal > 0 ? (totalSales / totalMinGoal) * 100 : 0;
+  const progressMin = totalMinGoal > 0 ? (totalSales / totalMinGoal) * 100 : 0;
+  const progressMax = totalMaxGoal > 0 ? (totalSales / totalMaxGoal) * 100 : 0;
 
-  const progressMax =
-    totalMaxGoal > 0 ? (totalSales / totalMaxGoal) * 100 : 0;
-
-  const daysWithSales = sales.filter(
-    (s) => Number(s.salesValue) > 0
-  ).length;
-
-  const avgDailySales =
-    daysWithSales > 0 ? totalSales / daysWithSales : 0;
-
-  // ===== PROJEÇÃO DE FATURAMENTO =====
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  const daysInMonth = new Date(
-    currentYear,
-    currentMonth + 1,
-    0
-  ).getDate();
-
-  const dayOfMonth = today.getDate();
-  const remainingDays = Math.max(daysInMonth - dayOfMonth, 0);
-
-  const projectedRevenue =
-    totalSales + avgDailySales * remainingDays;
-
-  const projectionVsMax =
-    totalMaxGoal > 0
-      ? (projectedRevenue / totalMaxGoal) * 100
-      : 0;
-  // ==================================
+  const daysWithSales = sales.filter((s) => Number(s.salesValue) > 0).length;
+  const avgDailySales = daysWithSales > 0 ? totalSales / daysWithSales : 0;
 
   const chartData = sales.map((s) => ({
     date: format(parseISO(s.date), "dd/MM"),
@@ -83,14 +33,67 @@ export default function Dashboard() {
   const isAboveMin = totalSales >= totalMinGoal;
   const isAboveMax = totalSales >= totalMaxGoal;
 
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const dayOfMonth = today.getDate();
+  const remainingDays = Math.max(daysInMonth - dayOfMonth, 0);
+
+  // Cenários
+  const projectedPessimistic = totalSales + avgDailySales * remainingDays * 0.8;
+  const projectedRealistic = totalSales + avgDailySales * remainingDays;
+  const projectedOptimistic = totalSales + avgDailySales * remainingDays * 1.2;
+
+  const projectionVsMax =
+    totalMaxGoal > 0
+      ? (projectedRealistic / totalMaxGoal) * 100
+      : 0;
+
+  let projectionStatus = {
+    label: " (Alto risco)",
+    color: "text-destructive",
+  };
+
+  if (projectionVsMax >= 110) {
+    projectionStatus = {
+      label: " (Meta superada)",
+      color: "text-success",
+    };
+  } else if (projectionVsMax >= 90) {
+    projectionStatus = {
+      label: " (Muito provável)",
+      color: "text-success",
+    };
+  } else if (projectionVsMax >= 70) {
+    projectionStatus = {
+      label: " (Risco moderado)",
+      color: "text-warning",
+    };
+  }
+
+  const salesValues = sales
+    .map((s) => Number(s.salesValue))
+    .filter((v) => v > 0);
+
+  const highestSale = salesValues.length
+    ? Math.max(...salesValues)
+    : 0;
+
+  const lowestSale = salesValues.length
+    ? Math.min(...salesValues)
+    : 0;
+
+
+
   return (
     <MainLayout title="Dashboard">
       <div className="space-y-6 animate-fade-in">
-        {/* CARDS SUPERIORES */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm font-medium te4t-muted-foreground">
                 Total Vendido
               </CardTitle>
               <DollarSign className="h-5 w-5 text-primary" />
@@ -105,13 +108,7 @@ export default function Dashboard() {
                 ) : (
                   <TrendingDown className="h-4 w-4 text-destructive" />
                 )}
-                <span
-                  className={`text-xs ${
-                    isAboveMax
-                      ? "text-success"
-                      : "text-destructive"
-                  }`}
-                >
+                <span className={`text-xs ${isAboveMax ? "text-success" : "text-destructive"}`}>
                   {progressMax.toFixed(1)}% da meta máxima
                 </span>
               </div>
@@ -129,10 +126,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-foreground">
                 {formatCurrency(totalMaxGoal)}
               </div>
-              <Progress
-                value={Math.min(progressMax, 100)}
-                className="mt-2 h-2"
-              />
+              <Progress value={Math.min(progressMax, 100)} className="mt-2 h-2" />
             </CardContent>
           </Card>
 
@@ -147,10 +141,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-foreground">
                 {formatCurrency(totalMinGoal)}
               </div>
-              <Progress
-                value={Math.min(progressMin, 100)}
-                className="mt-2 h-2"
-              />
+              <Progress value={Math.min(progressMin, 100)} className="mt-2 h-2" />
             </CardContent>
           </Card>
 
@@ -170,30 +161,93 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-
-          {/* CARD DE PROJEÇÃO */}
-          <Card className="stat-card border-primary/40">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Projeção do Mês
-              </CardTitle>
-              <TrendingUp className="h-5 w-5 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {formatCurrency(projectedRevenue)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Mantendo a média atual
-              </p>
-              {totalMaxGoal > 0 && (
-                <p className="text-xs text-success mt-1">
-                  {projectionVsMax.toFixed(1)}% da meta máxima
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </div>
+
+        <Card className="stat-card lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Projeção de Faturamento
+            </CardTitle>
+            <TrendingUp className="h-5 w-5 text-success" />
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Cenário Realista</p>
+              <p className="text-xl font-bold text-foreground">
+                {formatCurrency(projectedRealistic)}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Pessimista</span>
+                <span>{formatCurrency(projectedPessimistic)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Otimista</span>
+                <span className="text-success">
+                  {formatCurrency(projectedOptimistic)}
+                </span>
+              </div>
+            </div>
+
+            <Progress
+              value={Math.min(projectionVsMax, 100)}
+              className="h-2"
+            />
+
+            <div className="flex items-center gap-1">
+              {projectionVsMax >= 100 ? (
+                <TrendingUp className="h-4 w-4 text-success" />
+              ) : (
+                <TrendingDown className="h-4 w-4 text-warning" />
+              )}
+              <span
+                className={`text-xs ${
+                  projectionVsMax >= 100
+                    ? "text-success"
+                    : "text-warning"
+                }`}
+              >
+                {projectionVsMax.toFixed(1)}% da meta máxima
+              </span>
+
+              <span
+                className={`inline-block mt-1 text-xs font-semibold ${projectionStatus.color}`}
+              >
+                {projectionStatus.label}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+
+        <Card className="stat-card">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Destaques do Período
+            </CardTitle>
+            <DollarSign className="h-5 w-5 text-primary" />
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Maior venda</p>
+              <p className="text-lg font-bold text-success">
+                {formatCurrency(highestSale)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">Menor venda</p>
+              <p className="text-lg font-bold text-warning">
+                {formatCurrency(lowestSale)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="stat-card">
