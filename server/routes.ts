@@ -213,16 +213,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/daily-sales/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { salesValue } = req.body;
-      const sale = await storage.updateSalesValue(id, salesValue);
+      const { salesValue, customers } = req.body;
+
+      const sale = await storage.updateSalesValue(
+        id,
+        salesValue,
+        customers
+      );
+
       if (!sale) {
         return res.status(404).json({ error: "Venda não encontrada" });
       }
+
       res.json(sale);
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: "Erro ao atualizar venda" });
     }
   });
+
 
   app.patch("/api/daily-sales/:id/goals", requireAuth, async (req, res) => {
     try {

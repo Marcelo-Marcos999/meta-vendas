@@ -108,7 +108,7 @@ export function SellerDashboard({ seller, sales }: SellerDashboardProps) {
       : 0;
 
   // ===== PROJEÇÃO (MESMAS REGRAS DO DASHBOARD) =====
-  const pessimistic = projection * 0.9;
+  const pessimistic = projection * 0.8;
   const realistic = projection;
   const optimistic = projection * 1.1;
 

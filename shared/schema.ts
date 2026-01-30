@@ -1,4 +1,4 @@
-import { pgTable, uuid, date, decimal, timestamp, text, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, date, decimal, timestamp, text, boolean, unique, integer  } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -28,6 +28,7 @@ export const dailySales = pgTable("daily_sales", {
   dayOfWeek: text("day_of_week").notNull(),
   minGoal: decimal("min_goal", { precision: 12, scale: 2 }).notNull().default("0"),
   maxGoal: decimal("max_goal", { precision: 12, scale: 2 }).notNull().default("0"),
+  customers: integer("customers").notNull().default(0),
   salesValue: decimal("sales_value", { precision: 12, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -58,6 +59,7 @@ export const sellerDailySales = pgTable("seller_daily_sales", {
   date: date("date").notNull(),
   dayOfWeek: text("day_of_week").notNull(),
   goal: decimal("goal", { precision: 12, scale: 2 }).notNull().default("0"),
+  customers: integer("customers").notNull().default(0),
   salesValue: decimal("sales_value", { precision: 12, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

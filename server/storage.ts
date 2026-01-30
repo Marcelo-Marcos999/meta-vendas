@@ -142,14 +142,24 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateSalesValue(id: string, salesValue: string): Promise<DailySale | undefined> {
+  async updateSalesValue(
+    id: string,
+    salesValue: string,
+    customers?: number
+  ): Promise<DailySale | undefined> {
     const [updated] = await db
       .update(dailySales)
-      .set({ salesValue, updatedAt: new Date() })
+      .set({
+        salesValue,
+        customers: customers ?? 0,
+        updatedAt: new Date(),
+      })
       .where(eq(dailySales.id, id))
       .returning();
+
     return updated;
   }
+
 
   async updateDailySaleGoals(id: string, minGoal: string, maxGoal: string): Promise<DailySale | undefined> {
     const [updated] = await db

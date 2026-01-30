@@ -9,6 +9,7 @@ export interface DailySale {
   minGoal: string;
   maxGoal: string;
   salesValue: string;
+  customers: number;
   createdAt: string;
   updatedAt: string;
   userId: string;
@@ -41,9 +42,22 @@ export function useUpdateSalesValue() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, salesValue }: { id: string; salesValue: string }) => {
-      const res = await apiRequest("PATCH", `/api/daily-sales/${id}`, { salesValue });
-      return res.json();
+      mutationFn: async ({
+        id,
+        salesValue,
+        customers,
+      }: {
+        id: string;
+        salesValue: string;
+        customers: number;
+      }) => {
+        return apiRequest("PATCH", `/api/daily-sales/${id}`, {
+          salesValue,
+          customers,
+        });
+
+
+      // return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/daily-sales"] });
@@ -53,6 +67,7 @@ export function useUpdateSalesValue() {
     },
   });
 }
+
 
 export function useGenerateDailySales() {
   const queryClient = useQueryClient();
