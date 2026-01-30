@@ -25,6 +25,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/sales/CurrencyInput";
+import { SellerDashboard } from "@/components/sellers/SellerDashboard";
+
 
 export default function Sellers() {
   const [, setLocation] = useLocation();
@@ -80,6 +82,9 @@ export default function Sellers() {
     );
   };
 
+  const [viewMode, setViewMode] = useState<"table" | "dashboard">("table");
+  
+  
   const handleStartEdit = (seller: Seller) => {
     setEditingId(seller.id);
     setEditName(seller.name);
@@ -270,25 +275,37 @@ export default function Sellers() {
   return (
     <MainLayout title="Vendedores">
       <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-wrap items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
-            <Label>Vendedor:</Label>
-            <Select
-              value={selectedSellerId || ""}
-              onValueChange={(val) => setSelectedSellerId(val)}
-            >
-              <SelectTrigger className="w-[200px]" data-testid="select-seller">
-                <SelectValue placeholder="Selecione um vendedor" />
-              </SelectTrigger>
-              <SelectContent>
-                {sellers.map((seller) => (
-                  <SelectItem key={seller.id} value={seller.id}>
-                    {seller.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="flex flex-wrap items-center gap-4 justify-between">
+            <div className="flex items-center gap-4">
+              <Label>Vendedor:</Label>
+              <Select
+                value={selectedSellerId || ""}
+                onValueChange={(val) => setSelectedSellerId(val)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecione um vendedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sellers.map((seller) => (
+                    <SelectItem key={seller.id} value={seller.id}>
+                      {seller.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedSeller && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setViewMode(viewMode === "table" ? "dashboard" : "table")
+                  }
+                >
+                  {viewMode === "table" ? "📊 Ver Dashboard" : "⬅ Voltar"}
+                </Button>
+              )}
+            </div>
+  
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-seller">
@@ -335,218 +352,243 @@ export default function Sellers() {
           </Dialog>
         </div>
 
-        {sellers.length === 0 ? (
-          <Card className="stat-card">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum vendedor cadastrado</h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Adicione vendedores para acompanhar suas vendas individuais.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <Card className="stat-card">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Vendedores Cadastrados</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead>Nome</TableHead>
-                        <TableHead className="text-right">Meta</TableHead>
-                        <TableHead className="w-24 text-center">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sellers.map((seller) => (
-                        <TableRow key={seller.id} className="table-row-hover">
-                          <TableCell>
-                            {editingId === seller.id ? (
-                              <Input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="w-40"
-                                data-testid={`input-edit-name-${seller.id}`}
-                              />
-                            ) : (
-                              <span className="font-medium">{seller.name}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {editingId === seller.id ? (
-                              <CurrencyInput
-                                value={editGoal}
-                                onChange={setEditGoal}
-                                className="w-32 ml-auto"
-                              />
-                            ) : (
-                              <span className="text-primary font-medium">{formatCurrency(Number(seller.goal))}</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-center gap-1">
-                              {editingId === seller.id ? (
-                                <>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleSaveEdit}
-                                    data-testid={`button-save-edit-${seller.id}`}
-                                  >
-                                    <Check className="h-4 w-4 text-success" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleCancelEdit}
-                                    data-testid={`button-cancel-edit-${seller.id}`}
-                                  >
-                                    <X className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleStartEdit(seller)}
-                                    data-testid={`button-edit-${seller.id}`}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteSeller(seller.id)}
-                                    data-testid={`button-delete-${seller.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
+      {sellers.length === 0 ? (
+        <Card className="stat-card">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Users className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum vendedor cadastrado</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Adicione vendedores para acompanhar suas vendas individuais.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* ================= DASHBOARD DO VENDEDOR ================= */}
+          {viewMode === "dashboard" && selectedSeller && (
+            <SellerDashboard
+              seller={selectedSeller}
+              sales={sellerSales}
+            />
+          )}
+
+          {/* ================= VISÃO TABELA (CÓDIGO ORIGINAL) ================= */}
+          {viewMode === "table" && (
+            <>
+              <Card className="stat-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Vendedores Cadastrados</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Nome</TableHead>
+                          <TableHead className="text-right">Meta</TableHead>
+                          <TableHead className="w-24 text-center">Ações</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {sellers.map((seller) => (
+                          <TableRow key={seller.id} className="table-row-hover">
+                            <TableCell>
+                              {editingId === seller.id ? (
+                                <Input
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="w-40"
+                                />
+                              ) : (
+                                <span className="font-medium">{seller.name}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {editingId === seller.id ? (
+                                <CurrencyInput
+                                  value={editGoal}
+                                  onChange={setEditGoal}
+                                  className="w-32 ml-auto"
+                                />
+                              ) : (
+                                <span className="text-primary font-medium">
+                                  {formatCurrency(Number(seller.goal))}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-1">
+                                {editingId === seller.id ? (
+                                  <>
+                                    <Button size="icon" variant="ghost" onClick={handleSaveEdit}>
+                                      <Check className="h-4 w-4 text-success" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={handleCancelEdit}>
+                                      <X className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleStartEdit(seller)}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      onClick={() => handleDeleteSeller(seller.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
 
-            {selectedSeller && (
-              <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="stat-card">
-                    <CardContent className="pt-6">
-                      <p className="text-sm text-muted-foreground">Total Vendido ({selectedSeller.name})</p>
-                      <p className="text-2xl font-bold text-primary">{formatCurrency(totalSales)}</p>
+              {selectedSeller && (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="stat-card">
+                      <CardContent className="pt-6">
+                        <p className="text-sm text-muted-foreground">
+                          Total Vendido ({selectedSeller.name})
+                        </p>
+                        <p className="text-2xl font-bold text-primary">
+                          {formatCurrency(totalSales)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="stat-card">
+                      <CardContent className="pt-6">
+                        <p className="text-sm text-muted-foreground">Meta do Período</p>
+                        <p className="text-2xl font-bold text-success">
+                          {formatCurrency(totalGoal)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">
+                      {sellerSales.length} dias de trabalho registrados
+                    </p>
+                    <Button
+                      onClick={handleGenerateDays}
+                      disabled={generateSales.isPending}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${
+                          generateSales.isPending ? "animate-spin" : ""
+                        }`}
+                      />
+                      Regenerar Dias
+                    </Button>
+                  </div>
+
+                  <Card className="stat-card overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">
+                        Vendas de {selectedSeller.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {loadingSales ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                          Carregando...
+                        </div>
+                      ) : sellerSales.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <p className="text-muted-foreground mb-4">
+                            Nenhum dia de trabalho gerado.
+                          </p>
+                          <Button onClick={handleGenerateDays}>
+                            Gerar Dias de Trabalho
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="w-24">Data</TableHead>
+                                <TableHead className="w-20">Dia</TableHead>
+                                <TableHead className="text-right">Meta</TableHead>
+                                <TableHead className="text-right w-40">Vendas</TableHead>
+                                <TableHead className="text-center w-24">Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sellerSales.map((sale) => {
+                                const salesValue =
+                                  editingValues[sale.id] ?? Number(sale.salesValue);
+                                const goal = Number(sale.goal);
+                                const reached = salesValue >= goal;
+
+                                return (
+                                  <TableRow key={sale.id} className="table-row-hover">
+                                    <TableCell className="font-medium">
+                                      {formatDate(sale.date)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <span className="text-muted-foreground">
+                                        {sale.dayOfWeek}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-right text-success font-medium">
+                                      {formatCurrency(goal)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <CurrencyInput
+                                        value={editingValues[sale.id] ?? 0}
+                                        onChange={(value) =>
+                                          handleSalesValueChange(sale.id, value)
+                                        }
+                                        className="input-sales w-32 ml-auto"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      {salesValue === 0 ? (
+                                        <Badge variant="secondary" className="text-xs">
+                                          Pendente
+                                        </Badge>
+                                      ) : reached ? (
+                                        <Badge className="bg-success text-success-foreground text-xs">
+                                          Atingiu
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="destructive" className="text-xs">
+                                          Abaixo
+                                        </Badge>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                  <Card className="stat-card">
-                    <CardContent className="pt-6">
-                      <p className="text-sm text-muted-foreground">Meta do Período</p>
-                      <p className="text-2xl font-bold text-success">{formatCurrency(totalGoal)}</p>
-                    </CardContent>
-                  </Card>
-                </div>
 
-                <div className="flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">
-                    {sellerSales.length} dias de trabalho registrados
-                  </p>
-                  <Button
-                    onClick={handleGenerateDays}
-                    disabled={generateSales.isPending}
-                    variant="outline"
-                    className="gap-2"
-                    data-testid="button-regenerate-seller-days"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${generateSales.isPending ? "animate-spin" : ""}`} />
-                    Regenerar Dias
-                  </Button>
-                </div>
-
-                <Card className="stat-card overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Vendas de {selectedSeller.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {loadingSales ? (
-                      <div className="p-8 text-center text-muted-foreground">Carregando...</div>
-                    ) : sellerSales.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <p className="text-muted-foreground mb-4">Nenhum dia de trabalho gerado.</p>
-                        <Button onClick={handleGenerateDays} data-testid="button-generate-seller-days">
-                          Gerar Dias de Trabalho
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead className="w-24">Data</TableHead>
-                              <TableHead className="w-20">Dia</TableHead>
-                              <TableHead className="text-right">Meta</TableHead>
-                              <TableHead className="text-right w-40">Vendas</TableHead>
-                              <TableHead className="text-center w-24">Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {sellerSales.map((sale) => {
-                              const salesValue = editingValues[sale.id] ?? Number(sale.salesValue);
-                              const goal = Number(sale.goal);
-                              const reached = salesValue >= goal;
-
-                              return (
-                                <TableRow key={sale.id} className="table-row-hover">
-                                  <TableCell className="font-medium">{formatDate(sale.date)}</TableCell>
-                                  <TableCell>
-                                    <span className="text-muted-foreground">{sale.dayOfWeek}</span>
-                                  </TableCell>
-                                  <TableCell className="text-right text-success font-medium">
-                                    {formatCurrency(goal)}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <CurrencyInput
-                                      value={editingValues[sale.id] ?? 0}
-                                      onChange={(value) => handleSalesValueChange(sale.id, value)}
-                                      className="input-sales w-32 ml-auto"
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {salesValue === 0 ? (
-                                      <Badge variant="secondary" className="text-xs">
-                                        Pendente
-                                      </Badge>
-                                    ) : reached ? (
-                                      <Badge className="bg-success text-success-foreground text-xs">
-                                        Atingiu
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="destructive" className="text-xs">
-                                        Abaixo
-                                      </Badge>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </>
-        )}
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
       </div>
     </MainLayout>
   );
