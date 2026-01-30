@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/sales/CurrencyInput";
+import * as XLSX from "xlsx";
+
 
 export default function DailySales() {
   const [, setLocation] = useLocation();
@@ -100,6 +102,52 @@ export default function DailySales() {
     );
   }
 
+  const handleExportExcel = () => {
+    if (!sales.length) return;
+
+    const data = sales.map((sale) => {
+      const salesValue = Number(sale.salesValue);
+      const minGoal = Number(sale.minGoal);
+      const maxGoal = Number(sale.maxGoal);
+
+      let status = "Pendente";
+      if (salesValue >= maxGoal) status = "Superou";
+      else if (salesValue >= minGoal) status = "Atingiu";
+      else if (salesValue > 0) status = "Abaixo";
+
+      return {
+        Data: formatDate(sale.date),
+        Dia: sale.dayOfWeek,
+        "Meta Máxima": maxGoal,
+        "Meta Mínima": minGoal,
+        Vendas: salesValue,
+        Status: status,
+      };
+    });
+
+    // Aba principal
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // Workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Vendas Diárias");
+
+    // Aba resumo (extra, mas muito útil)
+    const summarySheet = XLSX.utils.json_to_sheet([
+      {
+        "Total Vendido": totalSales,
+        "Meta Máxima Total": totalMaxGoal,
+        "Meta Mínima Total": totalMinGoal,
+        "Dias Registrados": sales.length,
+      },
+    ]);
+
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
+
+    XLSX.writeFile(workbook, "vendas-diarias.xlsx");
+  };
+
+
   return (
     <MainLayout title="Vendas Diárias">
       <div className="space-y-6 animate-fade-in">
@@ -128,17 +176,32 @@ export default function DailySales() {
           <p className="text-sm text-muted-foreground">
             {sales.length} dias de trabalho registrados
           </p>
-          <Button
-            onClick={handleGenerateDays}
-            disabled={generateSales.isPending}
-            variant="outline"
-            className="gap-2"
-            data-testid="button-regenerate-days"
-          >
-            <RefreshCw className={`h-4 w-4 ${generateSales.isPending ? "animate-spin" : ""}`} />
-            Regenerar Dias
-          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportExcel}
+              disabled={sales.length === 0}
+              className="gap-2"
+            >
+              📊 Exportar Excel
+            </Button>
+
+            <Button
+              onClick={handleGenerateDays}
+              disabled={generateSales.isPending}
+              variant="outline"
+              className="gap-2"
+              data-testid="button-regenerate-days"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${generateSales.isPending ? "animate-spin" : ""}`}
+              />
+              Regenerar Dias
+            </Button>
+          </div>
         </div>
+
 
         <Card className="stat-card overflow-hidden">
           <CardHeader className="pb-3">

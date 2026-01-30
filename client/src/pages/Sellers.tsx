@@ -26,6 +26,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CurrencyInput } from "@/components/sales/CurrencyInput";
 import { SellerDashboard } from "@/components/sellers/SellerDashboard";
+import * as XLSX from "xlsx";
+
 
 
 export default function Sellers() {
@@ -272,6 +274,38 @@ export default function Sellers() {
     );
   }
 
+  const handleExportExcel = () => {
+    if (!sellerSales.length || !selectedSeller) return;
+
+    const data = sellerSales.map((sale) => ({
+      Data: formatDate(sale.date),
+      Dia: sale.dayOfWeek,
+      Meta: Number(sale.goal),
+      Vendas: Number(sale.salesValue),
+      Status:
+        Number(sale.salesValue) === 0
+          ? "Pendente"
+          : Number(sale.salesValue) >= Number(sale.goal)
+          ? "Atingiu"
+          : "Abaixo",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Vendas do Vendedor"
+    );
+
+    XLSX.writeFile(
+      workbook,
+      `vendas-${selectedSeller.name}.xlsx`
+    );
+  };
+
+
   return (
     <MainLayout title="Vendedores">
       <div className="space-y-6 animate-fade-in">
@@ -304,6 +338,15 @@ export default function Sellers() {
                   {viewMode === "table" ? "📊 Ver Dashboard" : "⬅ Voltar"}
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                onClick={handleExportExcel}
+                className="gap-2"
+              >
+                📊 Exportar Excel
+              </Button>
+
             </div>
   
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -482,6 +525,7 @@ export default function Sellers() {
                     <p className="text-sm text-muted-foreground">
                       {sellerSales.length} dias de trabalho registrados
                     </p>
+                    
                     <Button
                       onClick={handleGenerateDays}
                       disabled={generateSales.isPending}
