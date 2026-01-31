@@ -4,6 +4,7 @@ import session from "express-session";
 import { storage } from "./storage";
 import { insertGoalsConfigSchema, insertHolidaySchema, insertDailySaleSchema, insertUserSchema, insertSellerSchema } from "../shared/schema";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 
 declare module "express-session" {
   interface SessionData {
@@ -34,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     session({
       secret: process.env.SESSION_SECRET || "dev-secret",
       resave: false,
-      saveUninitialized: true, // 👈 MUDE ISSO
+      saveUninitialized: false, // 👈 MUDE ISSO
       cookie: {
         secure: true,
         httpOnly: true,
@@ -72,24 +73,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username } = req.body;
 
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ error: "Usuário não encontrado" });
-      }
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
 
-      req.session.userId = user.id;
-      res.json({ id: user.id, username: user.username });
-    } catch (error) {
-      console.error("LOGIN ERROR:", error);
-      res.status(500).json({ error: String(error) });
+    if (!username || !password) {
+      return res.status(400).json({ error: "Usuário e senha são obrigatórios" });
     }
 
-  });
+    const user = await storage.getUserByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: "Usuário ou senha inválidos" });
+    }
 
+    const passwordIsValid = await bcrypt.compare(password, user.password);
+    if (!passwordIsValid) {
+      return res.status(401).json({ error: "Usuário ou senha inválidos" });
+    }
+
+    // ✅ SÓ cria sessão depois de validar tudo
+    req.session.userId = user.id;
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+    });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ error: "Erro interno no login" });
+  }
+});
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
