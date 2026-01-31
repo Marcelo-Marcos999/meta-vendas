@@ -92,7 +92,6 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ error: "Usuário ou senha inválidos" });
     }
 
-    // ✅ SÓ cria sessão depois de validar tudo
     req.session.userId = user.id;
 
     res.json({
@@ -105,6 +104,7 @@ app.post("/api/auth/login", async (req, res) => {
     res.status(500).json({ error: "Erro interno no login" });
   }
 });
+  
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
