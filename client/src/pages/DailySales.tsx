@@ -11,7 +11,11 @@ import {
 } from "@/hooks/useDailySales";
 import { useGoalsConfig } from "@/hooks/useGoalsConfig";
 import { useHolidays } from "@/hooks/useHolidays";
-import { formatCurrency, formatDate, generateWorkDays, calculateDailyGoals } from "@/lib/goalCalculations";
+import {
+  formatCurrency,
+  formatDate,
+  generateWorkDays,
+} from "@/lib/goalCalculations";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import {
   Table,
@@ -29,9 +33,31 @@ import * as XLSX from "xlsx";
 
 export default function DailySales() {
   const [, setLocation] = useLocation();
-  const { data: sales = [], isLoading } = useDailySales();
   const { data: config } = useGoalsConfig();
   const { data: holidays = [] } = useHolidays();
+
+  const workDays = useMemo(() => {
+    if (
+      !config ||
+      !config.startDate ||
+      !config.endDate
+    ) {
+      return [];
+    }
+
+    try {
+      return generateWorkDays(
+        config.startDate,
+        config.endDate,
+        holidays
+      );
+    } catch {
+      return [];
+    }
+  }, [config, holidays]);
+
+
+  const { data: sales = [], isLoading } = useDailySales(workDays);
 
   const generateSales = useGenerateDailySales();
   const clearSales = useClearDailySales();
@@ -66,7 +92,11 @@ export default function DailySales() {
 
   const handleGenerateDays = () => {
     if (sales.length > 0) {
-      if (confirm("Isso irá limpar todos os valores de vendas registrados. Deseja continuar?")) {
+      if (
+        confirm(
+          "Isso irá limpar todos os valores de vendas registrados. Deseja continuar?"
+        )
+      ) {
         clearSales.mutate();
       }
       return;
@@ -77,20 +107,15 @@ export default function DailySales() {
       return;
     }
 
-    const workDays = generateWorkDays(config.startDate, config.endDate, holidays);
-    const dailyGoals = calculateDailyGoals(
-      workDays,
-      Number(config.minGoal),
-      Number(config.maxGoal)
-    );
-
-    const salesData = dailyGoals.map((day) => ({
-      date: day.date,
-      dayOfWeek: day.dayOfWeek,
-      minGoal: day.minGoal.toString(),
-      maxGoal: day.maxGoal.toString(),
-      salesValue: "0",
-    }));
+    const salesData = workDays
+      .filter((d) => d.weight > 0)
+      .map((day) => ({
+        date: day.date,
+        dayOfWeek: day.dayOfWeekShort,
+        minGoal: "0",
+        maxGoal: "0",
+        salesValue: "0",
+      }));
 
     generateSales.mutate(salesData);
   };
@@ -100,18 +125,18 @@ export default function DailySales() {
     [sales]
   );
 
-  const totalMinGoal = Number(config?.minGoal || 0);
-  const totalMaxGoal = Number(config?.maxGoal || 0);
-
   if (!config) {
     return (
       <MainLayout title="Vendas Diárias">
         <Card className="stat-card">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="h-12 w-12 text-warning mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Configuração Necessária</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Configuração Necessária
+            </h3>
             <p className="text-muted-foreground text-center mb-4">
-              Você precisa configurar as metas e o período de trabalho antes de registrar as vendas.
+              Você precisa configurar as metas e o período de trabalho antes de
+              registrar as vendas.
             </p>
             <Button onClick={() => setLocation("/configuracoes")}>
               Ir para Configurações
@@ -128,8 +153,9 @@ export default function DailySales() {
     const data = sales.map((sale) => {
       const customers = editingCustomers[sale.id] ?? 0;
       const salesValue = editingValues[sale.id] ?? Number(sale.salesValue);
-      const minGoal = Number(sale.minGoal);
-      const maxGoal = Number(sale.maxGoal);
+
+      const minGoal = sale.calculatedMinGoal ?? 0;
+      const maxGoal = sale.calculatedMaxGoal ?? 0;
 
       let status = "Pendente";
       if (salesValue >= maxGoal) status = "Superou";
@@ -143,8 +169,9 @@ export default function DailySales() {
         "Meta Máxima": maxGoal,
         "Meta Mínima": minGoal,
         Vendas: salesValue,
-        "Ticket Ideal": customers > 0 ? minGoal / customers : 0,
-        "Ticket Real": customers > 0 ? salesValue / customers : 0,
+        "Ticket Ideal": sale.idealTicket ?? "-",
+        "Ticket Real":
+          customers > 0 ? salesValue / customers : "-",
         Status: status,
       };
     });
@@ -158,31 +185,13 @@ export default function DailySales() {
   return (
     <MainLayout title="Vendas Diárias">
       <div className="space-y-6 animate-fade-in">
-        {/* CARDS TOPO */}
+        {/* TOPO */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="stat-card">
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Total Vendido</p>
               <p className="text-2xl font-bold text-primary">
                 {formatCurrency(totalSales)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Soma Metas Máximas</p>
-              <p className="text-2xl font-bold text-success">
-                {formatCurrency(totalMaxGoal)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Soma Metas Mínimas</p>
-              <p className="text-2xl font-bold text-warning">
-                {formatCurrency(totalMinGoal)}
               </p>
             </CardContent>
           </Card>
@@ -236,8 +245,12 @@ export default function DailySales() {
                       <TableHead className="text-right">Meta Mín.</TableHead>
                       <TableHead className="text-right">Clientes</TableHead>
                       <TableHead className="text-right">Vendas</TableHead>
-                      <TableHead className="text-right">Ticket Ideal</TableHead>
-                      <TableHead className="text-right">Ticket Real</TableHead>
+                      <TableHead className="text-right">
+                        Ticket Ideal
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Ticket Real
+                      </TableHead>
                       <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -247,22 +260,22 @@ export default function DailySales() {
                       const salesValue =
                         editingValues[sale.id] ?? Number(sale.salesValue);
                       const customers = editingCustomers[sale.id] ?? 0;
-                      const minGoal = Number(sale.minGoal);
-                      const maxGoal = Number(sale.maxGoal);
 
-                      const ticketIdeal =
-                        customers > 0 ? minGoal / customers : 0;
+                      const minGoal = sale.calculatedMinGoal ?? 0;
+                      const maxGoal = sale.calculatedMaxGoal ?? 0;
+
                       const ticketReal =
-                        customers > 0 ? salesValue / customers : 0;
+                        customers > 0 ? salesValue / customers : null;
 
                       return (
-                        <TableRow key={sale.id} className="table-row-hover">
+                        <TableRow key={sale.id}>
                           <TableCell>{formatDate(sale.date)}</TableCell>
                           <TableCell>{sale.dayOfWeek}</TableCell>
 
                           <TableCell className="text-right text-success font-medium">
                             {formatCurrency(maxGoal)}
                           </TableCell>
+
                           <TableCell className="text-right text-warning font-medium">
                             {formatCurrency(minGoal)}
                           </TableCell>
@@ -300,13 +313,13 @@ export default function DailySales() {
                           </TableCell>
 
                           <TableCell className="text-right text-muted-foreground">
-                            {customers > 0
-                              ? formatCurrency(ticketIdeal)
+                            {sale.idealTicket
+                              ? formatCurrency(sale.idealTicket)
                               : "-"}
                           </TableCell>
 
                           <TableCell className="text-right font-medium">
-                            {customers > 0
+                            {ticketReal
                               ? formatCurrency(ticketReal)
                               : "-"}
                           </TableCell>

@@ -1,5 +1,16 @@
-import { format, eachDayOfInterval, parseISO, isSaturday, isSunday, getDay } from "date-fns";
+import {
+  format,
+  eachDayOfInterval,
+  parseISO,
+  isSaturday,
+  isSunday,
+  getDay,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+/* =====================================================
+ * TIPOS
+ * ===================================================== */
 
 export interface Holiday {
   date: string;
@@ -17,6 +28,16 @@ export interface DayConfig {
   holidayWorked: boolean;
   weight: number;
 }
+
+export interface DailySaleInput {
+  date: string;
+  totalSold: number;
+  customers: number;
+}
+
+/* =====================================================
+ * NOMES DOS DIAS
+ * ===================================================== */
 
 const dayNames: Record<number, string> = {
   0: "Domingo",
@@ -38,6 +59,10 @@ const dayNamesShort: Record<number, string> = {
   6: "Sáb",
 };
 
+/* =====================================================
+ * CONFIGURAÇÃO DOS DIAS
+ * ===================================================== */
+
 export function getDayConfig(date: Date, holidays: Holiday[]): DayConfig {
   const dateStr = format(date, "yyyy-MM-dd");
   const dayNum = getDay(date);
@@ -49,17 +74,10 @@ export function getDayConfig(date: Date, holidays: Holiday[]): DayConfig {
   const holidayWorked = holiday?.isWorked ?? false;
 
   let weight = 1;
-  if (isSun) {
-    weight = 0;
-  } else if (isHoliday) {
-    if (holidayWorked) {
-      weight = 0.5;
-    } else {
-      weight = 0;
-    }
-  } else if (isSat) {
-    weight = 0.5;
-  }
+
+  if (isSun) weight = 0;
+  else if (isHoliday) weight = holidayWorked ? 0.5 : 0;
+  else if (isSat) weight = 0.5;
 
   return {
     date: dateStr,
@@ -81,32 +99,107 @@ export function generateWorkDays(
 ): DayConfig[] {
   const start = parseISO(startDate);
   const end = parseISO(endDate);
-  const days = eachDayOfInterval({ start, end });
 
-  return days.map((day) => getDayConfig(day, holidays));
+  return eachDayOfInterval({ start, end }).map((day) =>
+    getDayConfig(day, holidays)
+  );
 }
 
-export function calculateDailyGoals(
+/* =====================================================
+ * META MÁXIMA DINÂMICA (REGRA FINAL)
+ * ===================================================== */
+
+export function calculateDynamicDailyMaxGoal(
   workDays: DayConfig[],
-  minGoal: number,
-  maxGoal: number
-): { date: string; dayOfWeek: string; minGoal: number; maxGoal: number }[] {
-  const totalWeight = workDays.reduce((sum, day) => sum + day.weight, 0);
+  monthlyMaxGoal: number,
+  salesHistory: DailySaleInput[],
+  currentDate: string
+) {
+  const workedDays = workDays.filter((d) => d.weight > 0);
 
-  if (totalWeight === 0) return [];
+  const totalWeight = workedDays.reduce(
+    (sum, d) => sum + d.weight,
+    0
+  );
 
-  const minPerWeight = minGoal / totalWeight;
-  const maxPerWeight = maxGoal / totalWeight;
+  const baseDailyGoal = monthlyMaxGoal / totalWeight;
 
-  return workDays
-    .filter((day) => day.weight > 0)
-    .map((day) => ({
-      date: day.date,
-      dayOfWeek: day.dayOfWeekShort,
-      minGoal: Math.round(minPerWeight * day.weight * 100) / 100,
-      maxGoal: Math.round(maxPerWeight * day.weight * 100) / 100,
-    }));
+  const effectiveSales = salesHistory.filter(
+    (s) => s.date < currentDate && s.totalSold > 0
+  );
+
+  if (effectiveSales.length === 0) {
+    return {
+      dailyMaxGoal: Math.round(baseDailyGoal * 100) / 100,
+    };
+  }
+
+  const soldSoFar = effectiveSales.reduce(
+    (sum, s) => sum + s.totalSold,
+    0
+  );
+
+  const remainingGoal = monthlyMaxGoal - soldSoFar;
+
+  const remainingDays = workedDays.filter(
+    (d) => d.date >= currentDate
+  );
+
+  const remainingWeight = remainingDays.reduce(
+    (sum, d) => sum + d.weight,
+    0
+  );
+
+  const today = remainingDays.find(
+    (d) => d.date === currentDate
+  );
+
+  if (!today || remainingWeight === 0) {
+    return { dailyMaxGoal: 0 };
+  }
+
+  const dailyMaxGoal =
+    (remainingGoal / remainingWeight) * today.weight;
+
+  return {
+    dailyMaxGoal: Math.round(dailyMaxGoal * 100) / 100,
+  };
 }
+
+/* =====================================================
+ * TICKET IDEAL (1º DIA INCLUSO)
+ * ===================================================== */
+
+export function calculateIdealTicket(
+  dailyMaxGoal: number,
+  salesHistory: DailySaleInput[],
+  currentDate: string,
+  todayCustomers: number
+): number | null {
+  if (todayCustomers > 0) {
+    return Math.round(
+      (dailyMaxGoal / todayCustomers) * 100
+    ) / 100;
+  }
+
+  const history = salesHistory.filter(
+    (s) => s.date < currentDate && s.customers > 0
+  );
+
+  if (!history.length) return null;
+
+  const avgCustomers =
+    history.reduce((sum, s) => sum + s.customers, 0) /
+    history.length;
+
+  return Math.round(
+    (dailyMaxGoal / avgCustomers) * 100
+  ) / 100;
+}
+
+/* =====================================================
+ * FORMATADORES
+ * ===================================================== */
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -120,5 +213,8 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatFullDate(dateStr: string): string {
-  return format(parseISO(dateStr), "dd/MM/yyyy", { locale: ptBR });
+  return format(parseISO(dateStr), "dd/MM/yyyy", {
+    locale: ptBR,
+  });
 }
+

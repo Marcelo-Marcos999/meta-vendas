@@ -2,6 +2,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "sonner";
 
+import {
+  calculateDynamicDailyMaxGoal,
+  calculateIdealTicket,
+  DayConfig,
+  DailySaleInput,
+} from "@/lib/goalCalculations";
+
+import { useGoalsConfig } from "@/hooks/useGoalsConfig";
+
+/* =====================================================
+ * TIPOS
+ * ===================================================== */
+
 export interface DailySale {
   id: string;
   date: string;
@@ -10,54 +23,95 @@ export interface DailySale {
   maxGoal: string;
   salesValue: string;
   customers: number;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
+
+  // CAMPOS CALCULADOS NO FRONTEND
+  calculatedMaxGoal?: number;
+  calculatedMinGoal?: number;
+  idealTicket?: number | null;
 }
 
-export function useDailySales() {
+/* =====================================================
+ * QUERY PRINCIPAL
+ * ===================================================== */
+
+export function useDailySales(workDays: DayConfig[] = []) {
+  const { data: goalsConfig } = useGoalsConfig();
+
   return useQuery<DailySale[]>({
     queryKey: ["/api/daily-sales"],
+    enabled: !!goalsConfig,
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/daily-sales");
+      const sales: DailySale[] = await res.json();
+
+      if (!goalsConfig || workDays.length === 0) {
+        return sales;
+      }
+
+      const monthlyMaxGoal = Number(goalsConfig.maxGoal);
+      const monthlyMinGoal = Number(goalsConfig.minGoal);
+
+      const salesHistory = sales.map((s) => ({
+        date: s.date,
+        totalSold: Number(s.salesValue) || 0,
+        customers: s.customers || 0,
+      }));
+
+      return sales.map((sale) => {
+        const { dailyMaxGoal } = calculateDynamicDailyMaxGoal(
+          workDays,
+          monthlyMaxGoal,
+          salesHistory,
+          sale.date
+        );
+
+        const calculatedMinGoal =
+          Math.round(
+            dailyMaxGoal *
+              (monthlyMinGoal / monthlyMaxGoal) *
+              100
+          ) / 100;
+
+        const idealTicket = calculateIdealTicket(
+          dailyMaxGoal,
+          salesHistory,
+          sale.date,
+          sale.customers
+        );
+
+        return {
+          ...sale,
+          calculatedMaxGoal: dailyMaxGoal,
+          calculatedMinGoal,
+          idealTicket,
+        };
+      });
+    },
   });
 }
 
-export function useUpsertDailySale() {
-  const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (sale: { date: string; dayOfWeek: string; minGoal: string; maxGoal: string; salesValue: string }) => {
-      const res = await apiRequest("POST", "/api/daily-sales", sale);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/daily-sales"] });
-    },
-    onError: (error: Error) => {
-      toast.error("Erro ao salvar venda: " + error.message);
-    },
-  });
-}
+/* =====================================================
+ * MUTATIONS (⚠️ ESTAVAM FALTANDO)
+ * ===================================================== */
 
 export function useUpdateSalesValue() {
   const queryClient = useQueryClient();
 
   return useMutation({
-      mutationFn: async ({
-        id,
+    mutationFn: async ({
+      id,
+      salesValue,
+      customers,
+    }: {
+      id: string;
+      salesValue: string;
+      customers: number;
+    }) => {
+      return apiRequest("PATCH", `/api/daily-sales/${id}`, {
         salesValue,
         customers,
-      }: {
-        id: string;
-        salesValue: string;
-        customers: number;
-      }) => {
-        return apiRequest("PATCH", `/api/daily-sales/${id}`, {
-          salesValue,
-          customers,
-        });
-
-
-      // return res.json();
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/daily-sales"] });
@@ -68,13 +122,24 @@ export function useUpdateSalesValue() {
   });
 }
 
-
 export function useGenerateDailySales() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (sales: { date: string; dayOfWeek: string; minGoal: string; maxGoal: string; salesValue: string }[]) => {
-      const res = await apiRequest("POST", "/api/daily-sales/generate", { sales });
+    mutationFn: async (
+      sales: {
+        date: string;
+        dayOfWeek: string;
+        minGoal: string;
+        maxGoal: string;
+        salesValue: string;
+      }[]
+    ) => {
+      const res = await apiRequest(
+        "POST",
+        "/api/daily-sales/generate",
+        { sales }
+      );
       return res.json();
     },
     onSuccess: () => {
