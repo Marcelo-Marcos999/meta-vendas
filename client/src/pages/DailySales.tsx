@@ -11,11 +11,7 @@ import {
 } from "@/hooks/useDailySales";
 import { useGoalsConfig } from "@/hooks/useGoalsConfig";
 import { useHolidays } from "@/hooks/useHolidays";
-import {
-  formatCurrency,
-  formatDate,
-  generateWorkDays,
-} from "@/lib/goalCalculations";
+import { formatCurrency, formatDate, generateWorkDays } from "@/lib/goalCalculations";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import {
   Table,
@@ -37,25 +33,9 @@ export default function DailySales() {
   const { data: holidays = [] } = useHolidays();
 
   const workDays = useMemo(() => {
-    if (
-      !config ||
-      !config.startDate ||
-      !config.endDate
-    ) {
-      return [];
-    }
-
-    try {
-      return generateWorkDays(
-        config.startDate,
-        config.endDate,
-        holidays
-      );
-    } catch {
-      return [];
-    }
+    if (!config?.startDate || !config?.endDate) return [];
+    return generateWorkDays(config.startDate, config.endDate, holidays);
   }, [config, holidays]);
-
 
   const { data: sales = [], isLoading } = useDailySales(workDays);
 
@@ -68,15 +48,15 @@ export default function DailySales() {
 
   useEffect(() => {
     const values: Record<string, number> = {};
-    const customersMap: Record<string, number> = {};
+    const customers: Record<string, number> = {};
 
     sales.forEach((s) => {
       values[s.id] = Number(s.salesValue);
-      customersMap[s.id] = s.customers ?? 0;
+      customers[s.id] = s.customers ?? 0;
     });
 
     setEditingValues(values);
-    setEditingCustomers(customersMap);
+    setEditingCustomers(customers);
   }, [sales]);
 
   const handleSave = (id: string, salesValue: number, customers: number) => {
@@ -92,11 +72,7 @@ export default function DailySales() {
 
   const handleGenerateDays = () => {
     if (sales.length > 0) {
-      if (
-        confirm(
-          "Isso irá limpar todos os valores de vendas registrados. Deseja continuar?"
-        )
-      ) {
+      if (confirm("Isso irá limpar todos os registros. Deseja continuar?")) {
         clearSales.mutate();
       }
       return;
@@ -115,6 +91,7 @@ export default function DailySales() {
         minGoal: "0",
         maxGoal: "0",
         salesValue: "0",
+        customers: 0,
       }));
 
     generateSales.mutate(salesData);
@@ -128,16 +105,10 @@ export default function DailySales() {
   if (!config) {
     return (
       <MainLayout title="Vendas Diárias">
-        <Card className="stat-card">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="h-12 w-12 text-warning mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              Configuração Necessária
-            </h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Você precisa configurar as metas e o período de trabalho antes de
-              registrar as vendas.
-            </p>
+        <Card>
+          <CardContent className="flex flex-col items-center py-12">
+            <AlertCircle className="h-10 w-10 mb-4 text-warning" />
+            <p className="mb-4">Configure as metas primeiro.</p>
             <Button onClick={() => setLocation("/configuracoes")}>
               Ir para Configurações
             </Button>
@@ -153,26 +124,18 @@ export default function DailySales() {
     const data = sales.map((sale) => {
       const customers = editingCustomers[sale.id] ?? 0;
       const salesValue = editingValues[sale.id] ?? Number(sale.salesValue);
-
-      const minGoal = sale.calculatedMinGoal ?? 0;
-      const maxGoal = sale.calculatedMaxGoal ?? 0;
-
-      let status = "Pendente";
-      if (salesValue >= maxGoal) status = "Superou";
-      else if (salesValue >= minGoal) status = "Atingiu";
-      else if (salesValue > 0) status = "Abaixo";
+      const minGoal = Number(sale.minGoal);
+      const maxGoal = Number(sale.maxGoal);
 
       return {
         Data: formatDate(sale.date),
         Dia: sale.dayOfWeek,
         Clientes: customers,
-        "Meta Máxima": maxGoal,
         "Meta Mínima": minGoal,
+        "Meta Máxima": maxGoal,
         Vendas: salesValue,
-        "Ticket Ideal": sale.idealTicket ?? "-",
-        "Ticket Real":
-          customers > 0 ? salesValue / customers : "-",
-        Status: status,
+        "Ticket Ideal": customers > 0 ? maxGoal / customers : "",
+        "Ticket Real": customers > 0 ? salesValue / customers : "",
       };
     });
 
@@ -184,167 +147,146 @@ export default function DailySales() {
 
   return (
     <MainLayout title="Vendas Diárias">
-      <div className="space-y-6 animate-fade-in">
-        {/* TOPO */}
+      <div className="space-y-6">
+        {/* CARDS */}
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="stat-card">
+          <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Total Vendido</p>
-              <p className="text-2xl font-bold text-primary">
-                {formatCurrency(totalSales)}
+              <p>Total Vendido</p>
+              <p className="text-2xl font-bold">{formatCurrency(totalSales)}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <p>Meta Máxima</p>
+              <p className="text-2xl font-bold text-success">
+                {formatCurrency(Number(config.maxGoal))}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <p>Meta Mínima</p>
+              <p className="text-2xl font-bold text-warning">
+                {formatCurrency(Number(config.minGoal))}
               </p>
             </CardContent>
           </Card>
         </div>
 
         {/* AÇÕES */}
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            {sales.length} dias de trabalho registrados
-          </p>
-
+        <div className="flex justify-between">
+          <p>{sales.length} dias registrados</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleExportExcel}>
               📊 Exportar Excel
             </Button>
-            <Button
-              onClick={handleGenerateDays}
-              disabled={generateSales.isPending}
-              variant="outline"
-              className="gap-2"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${
-                  generateSales.isPending ? "animate-spin" : ""
-                }`}
-              />
+            <Button onClick={handleGenerateDays} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Regenerar Dias
             </Button>
           </div>
         </div>
 
         {/* TABELA */}
-        <Card className="stat-card overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Registro de Vendas</CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle>Registro de Vendas</CardTitle>
           </CardHeader>
-
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Carregando...
-              </div>
+              <div className="p-8 text-center">Carregando...</div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Data</TableHead>
-                      <TableHead>Dia</TableHead>
-                      <TableHead className="text-right">Meta Máx.</TableHead>
-                      <TableHead className="text-right">Meta Mín.</TableHead>
-                      <TableHead className="text-right">Clientes</TableHead>
-                      <TableHead className="text-right">Vendas</TableHead>
-                      <TableHead className="text-right">
-                        Ticket Ideal
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Ticket Real
-                      </TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Dia</TableHead>
+                    <TableHead className="text-right">Meta Máx.</TableHead>
+                    <TableHead className="text-right">Meta Mín.</TableHead>
+                    <TableHead className="text-right">Clientes</TableHead>
+                    <TableHead className="text-right">Vendas</TableHead>
+                    <TableHead className="text-right">Ticket Ideal</TableHead>
+                    <TableHead className="text-right">Ticket Real</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
 
-                  <TableBody>
-                    {sales.map((sale) => {
-                      const salesValue =
-                        editingValues[sale.id] ?? Number(sale.salesValue);
-                      const customers = editingCustomers[sale.id] ?? 0;
+                <TableBody>
+                  {sales.map((sale) => {
+                    const salesValue = editingValues[sale.id] ?? Number(sale.salesValue);
+                    const customers = editingCustomers[sale.id] ?? 0;
+                    const minGoal = Number(sale.minGoal);
+                    const maxGoal = Number(sale.maxGoal);
 
-                      const minGoal = sale.calculatedMinGoal ?? 0;
-                      const maxGoal = sale.calculatedMaxGoal ?? 0;
+                    const ticketIdeal =
+                      customers > 0 ? maxGoal / customers : null;
+                    const ticketReal =
+                      customers > 0 ? salesValue / customers : null;
 
-                      const ticketReal =
-                        customers > 0 ? salesValue / customers : null;
-
-                      return (
-                        <TableRow key={sale.id}>
-                          <TableCell>{formatDate(sale.date)}</TableCell>
-                          <TableCell>{sale.dayOfWeek}</TableCell>
-
-                          <TableCell className="text-right text-success font-medium">
-                            {formatCurrency(maxGoal)}
-                          </TableCell>
-
-                          <TableCell className="text-right text-warning font-medium">
-                            {formatCurrency(minGoal)}
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={customers}
-                              onChange={(e) =>
-                                setEditingCustomers((prev) => ({
-                                  ...prev,
-                                  [sale.id]: Number(e.target.value),
-                                }))
-                              }
-                              onBlur={(e) =>
-                                handleSave(
-                                  sale.id,
-                                  salesValue,
-                                  Number(e.currentTarget.value)
-                                )
-                              }
-                              className="w-24 ml-auto"
-                            />
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            <CurrencyInput
-                              value={salesValue}
-                              onChange={(value) =>
-                                handleSave(sale.id, value, customers)
-                              }
-                              className="w-32 ml-auto"
-                            />
-                          </TableCell>
-
-                          <TableCell className="text-right text-muted-foreground">
-                            {sale.idealTicket
-                              ? formatCurrency(sale.idealTicket)
-                              : "-"}
-                          </TableCell>
-
-                          <TableCell className="text-right font-medium">
-                            {ticketReal
-                              ? formatCurrency(ticketReal)
-                              : "-"}
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            {salesValue === 0 && customers === 0 ? (
-                              <Badge variant="secondary">Pendente</Badge>
-                            ) : salesValue >= maxGoal ? (
-                              <Badge className="bg-success text-success-foreground">
-                                Superou
-                              </Badge>
-                            ) : salesValue >= minGoal ? (
-                              <Badge className="bg-primary text-primary-foreground">
-                                Atingiu
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive">Abaixo</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                    return (
+                      <TableRow key={sale.id}>
+                        <TableCell>{formatDate(sale.date)}</TableCell>
+                        <TableCell>{sale.dayOfWeek}</TableCell>
+                        <TableCell className="text-right text-success">
+                          {formatCurrency(maxGoal)}
+                        </TableCell>
+                        <TableCell className="text-right text-warning">
+                          {formatCurrency(minGoal)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            value={customers}
+                            onChange={(e) =>
+                              setEditingCustomers((prev) => ({
+                                ...prev,
+                                [sale.id]: Number(e.target.value),
+                              }))
+                            }
+                            onBlur={(e) =>
+                              handleSave(
+                                sale.id,
+                                salesValue,
+                                Number(e.currentTarget.value)
+                              )
+                            }
+                            className="w-24 ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <CurrencyInput
+                            value={salesValue}
+                            onChange={(value) =>
+                              handleSave(sale.id, value, customers)
+                            }
+                            className="w-32 ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {ticketIdeal ? formatCurrency(ticketIdeal) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {ticketReal ? formatCurrency(ticketReal) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {salesValue === 0 ? (
+                            <Badge variant="secondary">Pendente</Badge>
+                          ) : salesValue >= maxGoal ? (
+                            <Badge className="bg-success">Superou</Badge>
+                          ) : salesValue >= minGoal ? (
+                            <Badge className="bg-primary">Atingiu</Badge>
+                          ) : (
+                            <Badge variant="destructive">Abaixo</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>

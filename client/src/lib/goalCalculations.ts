@@ -218,3 +218,7 @@ export function formatFullDate(dateStr: string): string {
   });
 }
 
+
+export function calculateDailyGoals(workDays: DayConfig[], arg1: number, arg2: number) {
+    throw new Error("Function not implemented.");
+}

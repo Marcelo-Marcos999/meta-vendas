@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { DailySale } from "./useDailySales";
 import { toast } from "sonner";
+
+interface DailySale {
+  id: string;
+  dayOfWeek: string;
+  salesValue: string;
+}
 
 interface RecalculateParams {
   saleId: string;
@@ -21,55 +26,66 @@ export function useRecalculateGoals() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ saleId, newSalesValue, allSales, totalMinGoal, totalMaxGoal }: RecalculateParams) => {
+    mutationFn: async ({
+      saleId,
+      newSalesValue,
+      allSales,
+      totalMinGoal,
+      totalMaxGoal,
+    }: RecalculateParams) => {
       const saleIndex = allSales.findIndex(s => s.id === saleId);
-      if (saleIndex === -1) throw new Error("Venda não encontrada");
-
-      // First, update the current sale value
-      await apiRequest("PATCH", `/api/daily-sales/${saleId}`, { salesValue: newSalesValue });
-
-      // Calculate total sales up to and including the current day
-      let totalSalesSoFar = 0;
-      for (let i = 0; i <= saleIndex; i++) {
-        const saleValue = i === saleIndex 
-          ? parseFloat(newSalesValue) || 0
-          : parseFloat(allSales[i].salesValue) || 0;
-        totalSalesSoFar += saleValue;
+      if (saleIndex === -1) {
+        throw new Error("Venda não encontrada");
       }
 
-      // Calculate remaining goals (what's left to sell to meet the target)
+      // 1️⃣ Atualiza a venda atual
+      await apiRequest("PATCH", `/api/daily-sales/${saleId}`, {
+        salesValue: newSalesValue,
+      });
+
+      // 2️⃣ Soma REAL das vendas até o dia atual
+      let totalSalesSoFar = 0;
+      for (let i = 0; i <= saleIndex; i++) {
+        const value =
+          i === saleIndex
+            ? parseFloat(newSalesValue) || 0
+            : parseFloat(allSales[i].salesValue) || 0;
+        totalSalesSoFar += value;
+      }
+
+      // 3️⃣ Calcula quanto falta do mês
       const remainingMinGoal = Math.max(0, totalMinGoal - totalSalesSoFar);
       const remainingMaxGoal = Math.max(0, totalMaxGoal - totalSalesSoFar);
 
-      // Get future days (after the current sale)
+      // 4️⃣ Dias futuros
       const futureDays = allSales.slice(saleIndex + 1);
-      
-      if (futureDays.length === 0) return { success: true };
+      if (!futureDays.length) return;
 
-      // Calculate total weight of future days
-      const totalFutureWeight = futureDays.reduce((sum, day) => {
-        const weight = getDayWeight(day.dayOfWeek);
-        return sum + weight;
-      }, 0);
+      // 5️⃣ Peso total dos dias futuros
+      const totalFutureWeight = futureDays.reduce(
+        (sum, day) => sum + getDayWeight(day.dayOfWeek),
+        0
+      );
 
-      if (totalFutureWeight === 0) return { success: true };
+      if (totalFutureWeight === 0) return;
 
-      // Distribute remaining goals proportionally based on weight
       const minPerWeight = remainingMinGoal / totalFutureWeight;
       const maxPerWeight = remainingMaxGoal / totalFutureWeight;
 
-      // Update each future day's goals
-      const updatePromises = futureDays.map(day => {
-        const weight = getDayWeight(day.dayOfWeek);
-        const minGoal = (Math.round(minPerWeight * weight * 100) / 100).toString();
-        const maxGoal = (Math.round(maxPerWeight * weight * 100) / 100).toString();
-        
-        return apiRequest("PATCH", `/api/daily-sales/${day.id}/goals`, { minGoal, maxGoal });
-      });
-
-      await Promise.all(updatePromises);
-
-      return { success: true };
+      // 6️⃣ Atualiza metas futuras no banco
+      await Promise.all(
+        futureDays.map(day => {
+          const weight = getDayWeight(day.dayOfWeek);
+          return apiRequest(
+            "PATCH",
+            `/api/daily-sales/${day.id}/goals`,
+            {
+              minGoal: (minPerWeight * weight).toFixed(2),
+              maxGoal: (maxPerWeight * weight).toFixed(2),
+            }
+          );
+        })
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/daily-sales"] });
