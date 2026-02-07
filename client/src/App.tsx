@@ -1,19 +1,19 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { Toaster as Sonner } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Dashboard from "@/pages/Dashboard";
-import DailySales from "@/pages/DailySales";
-import Sellers from "@/pages/Sellers";
-import Holidays from "@/pages/Holidays";
-import Settings from "@/pages/Settings";
-import Admin from "@/pages/Admin";
-import Login from "@/pages/Login";
-import NotFound from "@/pages/NotFound";
-import { queryClient } from "@/lib/queryClient";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import Dashboard from "./pages/Dashboard";
+import DailySales from "./pages/DailySales";
+import Sellers from "./pages/Sellers";
+import Holidays from "./pages/Holidays";
+import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
+import Login from "./pages/Login";
+import NotFound from "./pages/NotFound";
+import { queryClient } from "./lib/queryClient";
 
 function Router() {
   return (

@@ -115,6 +115,88 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+
+/* =====================================================
+ * RECÁLCULO COMPLETO DAS METAS DIÁRIAS
+ * ===================================================== */
+
+export interface RecalculatedDailyGoal {
+  date: string;
+  dayOfWeek: string;
+  dayOfWeekShort: string;
+  minGoal: number;
+  maxGoal: number;
+}
+
+export function calculateDailyGoals(
+  workDays: DayConfig[],
+  totalMinGoal: number,
+  totalMaxGoal: number,
+  salesHistory: DailySaleInput[]
+): RecalculatedDailyGoal[] {
+  // Apenas dias que contam no cálculo
+  const validDays = workDays
+    .filter((d) => d.weight > 0)
+    .sort(
+      (a, b) =>
+        parseISO(a.date).getTime() -
+        parseISO(b.date).getTime()
+    );
+
+  const salesMap = new Map<string, number>();
+  salesHistory.forEach((s) =>
+    salesMap.set(s.date, s.totalSold)
+  );
+
+  const results: RecalculatedDailyGoal[] = [];
+
+  let accumulatedSales = 0;
+
+  for (let i = 0; i < validDays.length; i++) {
+    const day = validDays[i];
+    const soldToday = salesMap.get(day.date) ?? 0;
+
+    const remainingMin = Math.max(
+      0,
+      totalMinGoal - accumulatedSales
+    );
+    const remainingMax = Math.max(
+      0,
+      totalMaxGoal - accumulatedSales
+    );
+
+    const remainingDays = validDays.slice(i);
+    const remainingWeight = remainingDays.reduce(
+      (sum, d) => sum + d.weight,
+      0
+    );
+
+    let minGoal = 0;
+    let maxGoal = 0;
+
+    if (remainingWeight > 0) {
+      minGoal =
+        (remainingMin / remainingWeight) * day.weight;
+      maxGoal =
+        (remainingMax / remainingWeight) * day.weight;
+    }
+
+    results.push({
+      date: day.date,
+      dayOfWeek: day.dayOfWeek,
+      dayOfWeekShort: day.dayOfWeekShort,
+      minGoal: Math.round(minGoal * 100) / 100,
+      maxGoal: Math.round(maxGoal * 100) / 100,
+    });
+
+    if (soldToday > 0) {
+      accumulatedSales += soldToday;
+    }
+  }
+
+  return results;
+}
+
 export function formatDate(dateStr: string): string {
   return format(parseISO(dateStr), "dd/MM", { locale: ptBR });
 }

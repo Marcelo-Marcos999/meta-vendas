@@ -197,6 +197,7 @@ export function calculateIdealTicket(
   ) / 100;
 }
 
+
 /* =====================================================
  * FORMATADORES
  * ===================================================== */
@@ -219,6 +220,142 @@ export function formatFullDate(dateStr: string): string {
 }
 
 
-export function calculateDailyGoals(workDays: DayConfig[], arg1: number, arg2: number) {
-    throw new Error("Function not implemented.");
+/* =====================================================
+ * RECÁLCULO COMPLETO DAS METAS DIÁRIAS
+ * ===================================================== */
+
+export interface RecalculatedDailyGoal {
+  date: string;
+  dayOfWeek: string;
+  dayOfWeekShort: string;
+  minGoal: number;
+  maxGoal: number;
+}
+
+// nova versão: calcula metas levando em conta vendas já realizadas
+export interface DailySaleInputExt {
+  date: string;
+  totalSold: number; // já convertido para número
+  customers?: number;
+  // se seu objeto "sale" já traz minGoal/maxGoal salvos no DB, inclua aqui:
+  minGoal?: number | string;
+  maxGoal?: number | string;
+}
+
+export function calculateDailyGoals(
+  workDays: DayConfig[],
+  totalMinGoal: number,
+  totalMaxGoal: number,
+  salesHistory: DailySaleInputExt[]
+): { date: string; dayOfWeek: string; minGoal: number; maxGoal: number }[] {
+  // 1) dias válidos (só os que contam)
+  const validDays = workDays.filter((d) => d.weight > 0)
+    .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+  if (!validDays.length) return [];
+
+  // 2) mapa de vendas por data (totalSold) e valores atuais de min/max se existirem
+  const saleMap = new Map<string, DailySaleInputExt>();
+  salesHistory.forEach((s) => {
+    saleMap.set(s.date, {
+      date: s.date,
+      totalSold: Number(s.totalSold ?? 0),
+      customers: s.customers,
+      minGoal: (s as any).minGoal,
+      maxGoal: (s as any).maxGoal,
+    });
+  });
+
+  // 3) Soma total vendida até agora (todas as datas)
+  const totalSoldSoFar = Array.from(saleMap.values()).reduce(
+    (sum, s) => sum + (Number(s.totalSold) || 0),
+    0
+  );
+
+  // 4) Calcula quanto ainda falta para cada meta (valor a distribuir)
+  const remainingMinTotal = Math.max(0, totalMinGoal - totalSoldSoFar);
+  const remainingMaxTotal = Math.max(0, totalMaxGoal - totalSoldSoFar);
+
+  // 5) Determina os dias *sem venda*, que são os que vamos recacular/redistribuir
+  const remainingDays = validDays.filter(
+    (d) => (saleMap.get(d.date)?.totalSold ?? 0) === 0
+  );
+
+  // Se não há dias restantes, retornamos os dados atuais (preservando min/max do map quando existir)
+  if (remainingDays.length === 0) {
+    return validDays.map((d) => {
+      const s = saleMap.get(d.date);
+      return {
+        date: d.date,
+        dayOfWeek: d.dayOfWeekShort,
+        minGoal: s && s.minGoal !== undefined ? Number(s.minGoal) : 0,
+        maxGoal: s && s.maxGoal !== undefined ? Number(s.maxGoal) : 0,
+      };
+    });
+  }
+
+  const remainingWeight = remainingDays.reduce((sum, d) => sum + d.weight, 0);
+
+  // 6) Distribui o restante proporcionalmente ao weight apenas entre remainingDays
+  //    e preserva min/max das datas que já tem venda (se existirem no saleMap).
+  //    Faz ajuste no último dia para corrigir erro por arredondamento.
+  const resultsMap = new Map<string, { minGoal: number; maxGoal: number }>();
+
+  // Distribuição inicial (com 2 casas decimais)
+  let assignedMinSum = 0;
+  let assignedMaxSum = 0;
+
+  for (let i = 0; i < remainingDays.length; i++) {
+    const day = remainingDays[i];
+
+    const rawMin =
+      remainingWeight > 0 ? (remainingMinTotal / remainingWeight) * day.weight : 0;
+    const rawMax =
+      remainingWeight > 0 ? (remainingMaxTotal / remainingWeight) * day.weight : 0;
+
+    // arredonda para centavos
+    let minGoal = Math.round(rawMin * 100) / 100;
+    let maxGoal = Math.round(rawMax * 100) / 100;
+
+    // se for o último dia restante, corrige o residual para garantir soma == remainingTotal
+    if (i === remainingDays.length - 1) {
+      const remMinResidual = Math.round((remainingMinTotal - assignedMinSum) * 100) / 100;
+      const remMaxResidual = Math.round((remainingMaxTotal - assignedMaxSum) * 100) / 100;
+      minGoal = Math.max(0, remMinResidual);
+      maxGoal = Math.max(0, remMaxResidual);
+    }
+
+    assignedMinSum += minGoal;
+    assignedMaxSum += maxGoal;
+
+    resultsMap.set(day.date, { minGoal, maxGoal });
+  }
+
+  // 7) Monta o array final:
+  //    - para dias com venda: preserva min/max do saleMap (se existir), senão coloca 0
+  //    - para dias sem venda: usa o valor calculado em resultsMap
+  const final = validDays.map((d) => {
+    const sale = saleMap.get(d.date);
+    if (sale && (Number(sale.totalSold) || 0) > 0) {
+      // se o DB já tem min/max salvos, prefira esses; caso contrário retornar 0
+      const minG = sale.minGoal !== undefined ? Number(sale.minGoal) : 0;
+      const maxG = sale.maxGoal !== undefined ? Number(sale.maxGoal) : 0;
+      return {
+        date: d.date,
+        dayOfWeek: d.dayOfWeekShort,
+        minGoal: Math.round(minG * 100) / 100,
+        maxGoal: Math.round(maxG * 100) / 100,
+      };
+    } else {
+      const r = resultsMap.get(d.date) ?? { minGoal: 0, maxGoal: 0 };
+      return {
+        date: d.date,
+        dayOfWeek: d.dayOfWeekShort,
+        minGoal: Math.round(r.minGoal * 100) / 100,
+        maxGoal: Math.round(r.maxGoal * 100) / 100,
+      };
+    }
+  });
+
+  return final;
 }

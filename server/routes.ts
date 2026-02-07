@@ -233,6 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+
   app.patch("/api/daily-sales/:id/goals", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;

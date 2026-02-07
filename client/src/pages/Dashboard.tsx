@@ -1,9 +1,9 @@
-import { MainLayout } from "@/components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { useDailySales } from "@/hooks/useDailySales";
-import { useGoalsConfig } from "@/hooks/useGoalsConfig";
-import { formatCurrency } from "@/lib/goalCalculations";
+import { MainLayout } from "../components/layout/MainLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
+import { useDailySales } from "../hooks/useDailySales";
+import { useGoalsConfig } from "../hooks/useGoalsConfig";
+import { formatCurrency } from "../lib/goalCalculations";
 import { TrendingUp, TrendingDown, Target, DollarSign, Calendar, Award } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { format, parseISO } from "date-fns";

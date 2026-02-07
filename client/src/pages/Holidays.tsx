@@ -1,22 +1,22 @@
 import { useState } from "react";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useHolidays, useAddHoliday, useUpdateHoliday, useDeleteHoliday } from "@/hooks/useHolidays";
-import { formatFullDate } from "@/lib/goalCalculations";
+import { MainLayout } from "../components/layout/MainLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
+import { useHolidays, useAddHoliday, useUpdateHoliday, useDeleteHoliday } from "../hooks/useHolidays";
+import { formatFullDate } from "../lib/goalCalculations";
 import { Plus, Trash2, Calendar, Briefcase, Coffee } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Badge } from "../components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "../components/ui/dialog";
 
 export default function Holidays() {
   const { data: holidays = [], isLoading } = useHolidays();

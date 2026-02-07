@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { MainLayout } from "../components/layout/MainLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import {
   useSellers,
   useCreateSeller,
@@ -14,18 +14,18 @@ import {
   useGenerateSellerSales,
   useClearSellerSales,
   type Seller,
-} from "@/hooks/useSellers";
-import { useGoalsConfig } from "@/hooks/useGoalsConfig";
-import { useHolidays } from "@/hooks/useHolidays";
-import { useRecalculateSellerGoals } from "@/hooks/useRecalculateSellerGoals";
-import { formatCurrency, formatDate, generateWorkDays } from "@/lib/goalCalculations";
+} from "../hooks/useSellers";
+import { useGoalsConfig } from "../hooks/useGoalsConfig";
+import { useHolidays } from "../hooks/useHolidays";
+import { useRecalculateSellerGoals } from "../hooks/useRecalculateSellerGoals";
+import { formatCurrency, formatDate, generateWorkDays } from "../lib/goalCalculations";
 import { Plus, RefreshCw, AlertCircle, Trash2, Edit2, Check, X, Users } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CurrencyInput } from "@/components/sales/CurrencyInput";
-import { SellerDashboard } from "@/components/sellers/SellerDashboard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Badge } from "../components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { CurrencyInput } from "../components/sales/CurrencyInput";
+import { SellerDashboard } from "../components/sellers/SellerDashboard";
 import * as XLSX from "xlsx";
 
 
