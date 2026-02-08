@@ -12,44 +12,49 @@ export default function Dashboard() {
   const { data: sales = [] } = useDailySales();
   const { data: config } = useGoalsConfig();
 
+  /* =====================================================
+   * TOTAIS E METAS
+   * ===================================================== */
+
   const totalSales = sales.reduce((sum, s) => sum + Number(s.salesValue), 0);
-  
+
   const totalMinGoal = Number(config?.minGoal || 0);
   const totalMaxGoal = Number(config?.maxGoal || 0);
 
   const progressMin = totalMinGoal > 0 ? (totalSales / totalMinGoal) * 100 : 0;
   const progressMax = totalMaxGoal > 0 ? (totalSales / totalMaxGoal) * 100 : 0;
 
+  /* =====================================================
+   * MÉDIA DIÁRIA
+   * ===================================================== */
+
   const daysWithSales = sales.filter((s) => Number(s.salesValue) > 0).length;
-  const avgDailySales = daysWithSales > 0 ? totalSales / daysWithSales : 0;
+  const observedAvgDaily = daysWithSales > 0 ? totalSales / daysWithSales : 0;
 
-  const chartData = sales.map((s) => ({
-    date: format(parseISO(s.date), "dd/MM"),
-    vendas: Number(s.salesValue),
-    metaMin: Number(s.minGoal),
-    metaMax: Number(s.maxGoal),
-  }));
+  /* =====================================================
+   * PERÍODO E DIAS RESTANTES (CORREÇÃO PRINCIPAL)
+   * ===================================================== */
 
-  const isAboveMin = totalSales >= totalMinGoal;
-  const isAboveMax = totalSales >= totalMaxGoal;
+  const totalPeriodDays = sales.length;
 
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
+  // fallbackAvgDaily: se não há vendas observadas, distribui a meta máxima igualmente
+  const fallbackAvgDaily = totalPeriodDays > 0 ? totalMaxGoal / totalPeriodDays : 0;
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const dayOfMonth = today.getDate();
-  const remainingDays = Math.max(daysInMonth - dayOfMonth, 0);
+  // média final usada na projeção
+  const avgDailySales = daysWithSales > 0 ? observedAvgDaily : fallbackAvgDaily;
 
-  // Cenários
-  const projectedPessimistic = totalSales + avgDailySales * remainingDays * 0.8;
-  const projectedRealistic = totalSales + avgDailySales * remainingDays;
-  const projectedOptimistic = totalSales + avgDailySales * remainingDays * 1.2;
+  // dias restantes do PERÍODO = total de dias gerados - dias que já têm venda
+  const remainingWorkDays = Math.max(totalPeriodDays - daysWithSales, 0);
 
-  const projectionVsMax =
-    totalMaxGoal > 0
-      ? (projectedRealistic / totalMaxGoal) * 100
-      : 0;
+  /* =====================================================
+   * PROJEÇÕES (CORRIGIDAS)
+   * ===================================================== */
+
+  const projectedPessimistic = totalSales + avgDailySales * remainingWorkDays * 0.8;
+  const projectedRealistic = totalSales + avgDailySales * remainingWorkDays;
+  const projectedOptimistic = totalSales + avgDailySales * remainingWorkDays * 1.2;
+
+  const projectionVsMax = totalMaxGoal > 0 ? (projectedRealistic / totalMaxGoal) * 100 : 0;
 
   let projectionStatus = {
     label: " (Alto risco)",
@@ -73,19 +78,27 @@ export default function Dashboard() {
     };
   }
 
-  const salesValues = sales
-    .map((s) => Number(s.salesValue))
-    .filter((v) => v > 0);
+  /* =====================================================
+   * DADOS PARA GRÁFICOS
+   * ===================================================== */
 
-  const highestSale = salesValues.length
-    ? Math.max(...salesValues)
-    : 0;
+  const chartData = sales.map((s) => ({
+    date: format(parseISO(s.date), "dd/MM"),
+    vendas: Number(s.salesValue),
+    metaMin: Number(s.minGoal),
+    metaMax: Number(s.maxGoal),
+  }));
 
-  const lowestSale = salesValues.length
-    ? Math.min(...salesValues)
-    : 0;
+  const isAboveMin = totalSales >= totalMinGoal;
+  const isAboveMax = totalSales >= totalMaxGoal;
 
+  const salesValues = sales.map((s) => Number(s.salesValue)).filter((v) => v > 0);
+  const highestSale = salesValues.length ? Math.max(...salesValues) : 0;
+  const lowestSale = salesValues.length ? Math.min(...salesValues) : 0;
 
+  /* =====================================================
+   * RENDER
+   * ===================================================== */
 
   return (
     <MainLayout title="Dashboard">
@@ -93,21 +106,13 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium te4t-muted-foreground">
-                Total Vendido
-              </CardTitle>
+              <CardTitle className="text-sm font-medium te4t-muted-foreground">Total Vendido</CardTitle>
               <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {formatCurrency(totalSales)}
-              </div>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(totalSales)}</div>
               <div className="flex items-center gap-1 mt-1">
-                {isAboveMax ? (
-                  <TrendingUp className="h-4 w-4 text-success" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 text-destructive" />
-                )}
+                {isAboveMax ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
                 <span className={`text-xs ${isAboveMax ? "text-success" : "text-destructive"}`}>
                   {progressMax.toFixed(1)}% da meta máxima
                 </span>
@@ -117,66 +122,48 @@ export default function Dashboard() {
 
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Meta Máxima
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Meta Máxima</CardTitle>
               <Award className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {formatCurrency(totalMaxGoal)}
-              </div>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(totalMaxGoal)}</div>
               <Progress value={Math.min(progressMax, 100)} className="mt-2 h-2" />
             </CardContent>
           </Card>
 
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Meta Mínima
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Meta Mínima</CardTitle>
               <Target className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {formatCurrency(totalMinGoal)}
-              </div>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(totalMinGoal)}</div>
               <Progress value={Math.min(progressMin, 100)} className="mt-2 h-2" />
             </CardContent>
           </Card>
 
           <Card className="stat-card">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Média Diária
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Média Diária</CardTitle>
               <Calendar className="h-5 w-5 text-secondary-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {formatCurrency(avgDailySales)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {daysWithSales} dias com vendas
-              </p>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(avgDailySales)}</div>
+              <p className="text-xs text-muted-foreground mt-1">{daysWithSales} dias com vendas</p>
             </CardContent>
           </Card>
         </div>
 
         <Card className="stat-card lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Projeção de Faturamento
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Projeção de Faturamento</CardTitle>
             <TrendingUp className="h-5 w-5 text-success" />
           </CardHeader>
 
           <CardContent className="space-y-3">
             <div>
               <p className="text-xs text-muted-foreground">Cenário Realista</p>
-              <p className="text-xl font-bold text-foreground">
-                {formatCurrency(projectedRealistic)}
-              </p>
+              <p className="text-xl font-bold text-foreground">{formatCurrency(projectedRealistic)}</p>
             </div>
 
             <div className="space-y-1">
@@ -186,68 +173,39 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Otimista</span>
-                <span className="text-success">
-                  {formatCurrency(projectedOptimistic)}
-                </span>
+                <span className="text-success">{formatCurrency(projectedOptimistic)}</span>
               </div>
             </div>
 
-            <Progress
-              value={Math.min(projectionVsMax, 100)}
-              className="h-2"
-            />
+            <Progress value={Math.min(projectionVsMax, 100)} className="h-2" />
 
             <div className="flex items-center gap-1">
-              {projectionVsMax >= 100 ? (
-                <TrendingUp className="h-4 w-4 text-success" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-warning" />
-              )}
-              <span
-                className={`text-xs ${
-                  projectionVsMax >= 100
-                    ? "text-success"
-                    : "text-warning"
-                }`}
-              >
-                {projectionVsMax.toFixed(1)}% da meta máxima
-              </span>
+              {projectionVsMax >= 100 ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-warning" />}
+              <span className={`text-xs ${projectionVsMax >= 100 ? "text-success" : "text-warning"}`}>{projectionVsMax.toFixed(1)}% da meta máxima</span>
 
-              <span
-                className={`inline-block mt-1 text-xs font-semibold ${projectionStatus.color}`}
-              >
-                {projectionStatus.label}
-              </span>
+              <span className={`inline-block mt-1 text-xs font-semibold ${projectionStatus.color}`}>{projectionStatus.label}</span>
             </div>
           </CardContent>
         </Card>
 
-
         <Card className="stat-card">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Destaques do Período
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Destaques do Período</CardTitle>
             <DollarSign className="h-5 w-5 text-primary" />
           </CardHeader>
 
           <CardContent className="space-y-3">
             <div>
               <p className="text-xs text-muted-foreground">Maior venda</p>
-              <p className="text-lg font-bold text-success">
-                {formatCurrency(highestSale)}
-              </p>
+              <p className="text-lg font-bold text-success">{formatCurrency(highestSale)}</p>
             </div>
 
             <div>
               <p className="text-xs text-muted-foreground">Menor venda</p>
-              <p className="text-lg font-bold text-warning">
-                {formatCurrency(lowestSale)}
-              </p>
+              <p className="text-lg font-bold text-warning">{formatCurrency(lowestSale)}</p>
             </div>
           </CardContent>
         </Card>
-
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="stat-card">
@@ -258,9 +216,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Meta Máxima</span>
-                  <span className={`text-sm font-bold ${isAboveMax ? "text-success" : "text-muted-foreground"}`}>
-                    {progressMax.toFixed(1)}%
-                  </span>
+                  <span className={`text-sm font-bold ${isAboveMax ? "text-success" : "text-muted-foreground"}`}>{progressMax.toFixed(1)}%</span>
                 </div>
                 <div className="relative">
                   <Progress value={Math.min(progressMax, 100)} className="h-4" />
@@ -275,9 +231,7 @@ export default function Dashboard() {
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Meta Mínima</span>
-                  <span className={`text-sm font-bold ${isAboveMin ? "text-success" : "text-warning"}`}>
-                    {progressMin.toFixed(1)}%
-                  </span>
+                  <span className={`text-sm font-bold ${isAboveMin ? "text-success" : "text-warning"}`}>{progressMin.toFixed(1)}%</span>
                 </div>
                 <div className="relative">
                   <Progress value={Math.min(progressMin, 100)} className="h-4" />
@@ -293,15 +247,11 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <p className="text-xs text-muted-foreground">Falta para máxima</p>
-                    <p className="text-lg font-bold text-primary">
-                      {formatCurrency(Math.max(0, totalMaxGoal - totalSales))}
-                    </p>
+                    <p className="text-lg font-bold text-primary">{formatCurrency(Math.max(0, totalMaxGoal - totalSales))}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Falta para mínima</p>
-                    <p className="text-lg font-bold text-warning">
-                      {formatCurrency(Math.max(0, totalMinGoal - totalSales))}
-                    </p>
+                    <p className="text-lg font-bold text-warning">{formatCurrency(Math.max(0, totalMinGoal - totalSales))}</p>
                   </div>
                 </div>
               </div>
@@ -362,33 +312,9 @@ export default function Dashboard() {
                       borderRadius: "8px",
                     }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="vendas"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorVendas)"
-                    name="Vendas"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="metaMin"
-                    stroke="hsl(var(--warning))"
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
-                    fill="transparent"
-                    name="Meta Mínima"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="metaMax"
-                    stroke="hsl(var(--success))"
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
-                    fill="transparent"
-                    name="Meta Máxima"
-                  />
+                  <Area type="monotone" dataKey="vendas" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorVendas)" name="Vendas" />
+                  <Area type="monotone" dataKey="metaMin" stroke="hsl(var(--warning))" strokeWidth={1} strokeDasharray="5 5" fill="transparent" name="Meta Mínima" />
+                  <Area type="monotone" dataKey="metaMax" stroke="hsl(var(--success))" strokeWidth={1} strokeDasharray="5 5" fill="transparent" name="Meta Máxima" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

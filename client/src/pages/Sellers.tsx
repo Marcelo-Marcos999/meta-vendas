@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
-import { MainLayout } from "../components/layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   useSellers,
   useCreateSeller,
@@ -14,18 +14,18 @@ import {
   useGenerateSellerSales,
   useClearSellerSales,
   type Seller,
-} from "../hooks/useSellers";
-import { useGoalsConfig } from "../hooks/useGoalsConfig";
-import { useHolidays } from "../hooks/useHolidays";
-import { useRecalculateSellerGoals } from "../hooks/useRecalculateSellerGoals";
-import { formatCurrency, formatDate, generateWorkDays } from "../lib/goalCalculations";
+} from "@/hooks/useSellers";
+import { useGoalsConfig } from "@/hooks/useGoalsConfig";
+import { useHolidays } from "@/hooks/useHolidays";
+import { useRecalculateSellerGoals } from "@/hooks/useRecalculateSellerGoals";
+import { formatCurrency, formatDate, generateWorkDays } from "@/lib/goalCalculations";
 import { Plus, RefreshCw, AlertCircle, Trash2, Edit2, Check, X, Users } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Badge } from "../components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
-import { CurrencyInput } from "../components/sales/CurrencyInput";
-import { SellerDashboard } from "../components/sellers/SellerDashboard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CurrencyInput } from "@/components/sales/CurrencyInput";
+import { SellerDashboard } from "@/components/sellers/SellerDashboard";
 import * as XLSX from "xlsx";
 
 
@@ -35,7 +35,7 @@ export default function Sellers() {
   const { data: sellers = [], isLoading: loadingSellers } = useSellers();
   const { data: config } = useGoalsConfig();
   const { data: holidays = [] } = useHolidays();
-  
+
   const createSeller = useCreateSeller();
   const updateSeller = useUpdateSeller();
   const deleteSeller = useDeleteSeller();
@@ -85,8 +85,8 @@ export default function Sellers() {
   };
 
   const [viewMode, setViewMode] = useState<"table" | "dashboard">("table");
-  
-  
+
+
   const handleStartEdit = (seller: Seller) => {
     setEditingId(seller.id);
     setEditName(seller.name);
@@ -95,9 +95,9 @@ export default function Sellers() {
 
   const regenerateSellerDaysWithNewGoal = (sellerId: string, sellerGoal: number) => {
     if (!config) return;
-    
+
     const workDays = generateWorkDays(config.startDate, config.endDate, holidays);
-    
+
     // Create a map of existing sales by date
     const existingSalesMap = new Map<string, { salesValue: string }>();
     sellerSales.forEach(sale => {
@@ -151,7 +151,7 @@ export default function Sellers() {
     if (!editingId || !editName.trim()) return;
     const originalSeller = sellers.find(s => s.id === editingId);
     const goalChanged = originalSeller && Number(originalSeller.goal) !== editGoal;
-    
+
     updateSeller.mutate(
       { id: editingId, name: editName.trim(), goal: editGoal.toString() },
       {
@@ -185,7 +185,7 @@ export default function Sellers() {
 
     const workDays = generateWorkDays(config.startDate, config.endDate, holidays);
     const sellerGoal = Number(selectedSeller.goal);
-    
+
     // Create a map of existing sales by date
     const existingSalesMap = new Map<string, { salesValue: string }>();
     sellerSales.forEach(sale => {
@@ -348,7 +348,7 @@ export default function Sellers() {
               </Button>
 
             </div>
-  
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-seller">
@@ -525,7 +525,7 @@ export default function Sellers() {
                     <p className="text-sm text-muted-foreground">
                       {sellerSales.length} dias de trabalho registrados
                     </p>
-                    
+
                     <Button
                       onClick={handleGenerateDays}
                       disabled={generateSales.isPending}
